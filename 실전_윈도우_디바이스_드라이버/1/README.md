@@ -370,4 +370,4 @@ Delfiles와 마찬가지로 단일 파일명을 정의할 수 없고 섹션을 �
 |HKCU|HKEY_CURRENT_USER|
 |HKLM|HKEY_LOCAL_MACHINE|
 |HKU|HKEY_USERS|
-|HKR|DDInstall  * Software  KeyDDInstall.HW  * Hardwrae Key  DDInstall.Service  * Service Key|
+|HKR|DDInstall</br> * Software Key</br>DDInstall.HW</br> * Hardwrae Key</br> DDInstall.Service</br> * Service Key|
