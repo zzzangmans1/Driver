@@ -170,7 +170,148 @@ INF는 섹션으로 구분해 드라이버에 대한 정보를 기술한다.
 INF 파일이 어떤 포맷의 내용을 서술하게 되는지를 설명한다.
 드라이버를 나타내는 아주 중요한 섹션이다.
 
-''' INF
-예제
+**INF 파일 내용 예시1**
 
-'''
+예제
+[Version]
+Signature="$WINDOWS NT$"
+Class=%ClassName%
+ClassGuid={78839F2E-1F69-44EB-AE7E-D6897F8C4F11}
+Provider="%PROVIDER_STRING%"
+DriverVer=01/20/2014, 19 .49 .39 .593
+CatalogFile=SimpleHajeDrvier .cat
+[Strings]
+ClassName           ="EXAMPLEDRIVER"
+PROVIDER_STRING     ="HajeSoft"
+
+**Signature="signature-name"**
+Signature는 드라이버가 어떤 운영체제를 지원하는지 나타낸다.
+* Signature="$WINDOWS NT$": 윈도우NT 계열 운영체제만 지원하는 드라이버
+* Signature="$WINDOWS 95$": 윈도우9X/Me 운영체제만 지원하는 드라이버
+* Signature="$Chicago$": 윈도우 계열의 모든 운영체제를 지원하는 드라이버
+
+**Class=class=name**
+Class는 드라이버가 어떤 클래스를 지원하는 드라이버인지 나타낸다.
+여기서 말하는 클래스는 장치 유형을 말한다.
+예를 들어 USB, 마우스, 키보드, 저장장치 등을 시스템에서 정의한 클래스가 존재한다.
+Class는 대응되는 ClassGuid가 있는데 ClassGuid에 대응되는 Class여야 한다.
+단 운영체제에서 정의한 Class가 아닌 제조사가 새롭게 정의한 Class라면 Class Install32 섹션을 반드시 기술해야 한다.
+
+**ClassGuid={nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn}**
+Class와 대응되는 유일한 Class를 나타내는 GUID(Globally Unique Identifier)다.
+예를 들어, Class=Printer라는 지시자 선언이 있다고 가정하자.
+대부분 Printer라고 하면 프리터 드라이버와 관련된 내용이라고 생각한다.
+하지만 어떤 사람의 이름일 수도 있다.
+그 사람을 주변에서 'Hey! Mr Printer.'라고 부를 수도 있다는 의미다.
+따라서 이것이 정확하게 어떤 의미로 사용되는지 부연 설명하는 것이 ClassGuid가 된다.
+
+**Provider=%INF-creator%**
+드라이버를 제공하는 공급자를 나타낸다.
+다음의 에시처럼 제공자 이름을 바로 기술해도 되지만 앞뒤에 퍼센트(%)를 넣어 String 섹션에서 정의할 변수로 지정해 사용할 수 있다.
+
+**DriverVer=mm/dd/yyyy[, x .x .y .z]**
+윈도우 2000 이상부터 요구하는 지시자다. 
+드라이버를 생성한 날짜와 버전을 기술한다.
+
+**CatalogFile=filename.cat**
+WHQL(Windows Hardware Quality Testing) 인증 테스트를 통과한 드라이버는 카탈로그 파일을 가지게 되는데, 인증을 받는 드라이버라면 반드시 기술돼야 하는 지시자다.
+참고로 64비트 윈도우 운영체제에서 인증을 받지 않은 드라이버는 사용할 수 없다.
+
+### 1.4.2 SoureceDisksNames 섹션
+
+드라이버 설치에 사용할 파일들의 볼륨명이나 저장돼 있는 위치를 나타낼 때 사용되는 섹션이다.
+
+
+원형
+diskid = disk-description
+diskid = disk-description , path
+예제
+[SourceDiskNames]
+1= %Diskname%,,,""
+2= %USBDiskName%,,,""
+[Strings]
+DiskName        ="Exam Driver Source Disk"
+USBDiskName     ="Exam USB Driver Source Disk"
+
+### 1.4.3 SourceDisksFiles 섹션
+
+SourceDisksNames 섹션이 정의한 내용을 어떤 파일에 적용할 것인지 기술하는 섹션이다.
+
+원형
+filename=diskid[, [ subdir][, size]]
+예제
+[SourceDisksNames]
+1=%Diskname%,,,""
+2=%USBDiskname%,,,""
+[SourceDisksFiles]
+SimpleHajeDrvier.sys    =1
+SimpleHajeUSBDriver.sys =2
+[Strings]
+DiskName        ="Exam Driver Source Disk"
+USBDiskName     ="Exam USB Driver Source Disk"
+
+### 1.4.4 DestinationDirs 섹션
+
+드라이버 설치 과정 중 해당하는 장치에 사용될 드라이버가 어디로 복사될 것인지 기술하는 섹션이다.
+복사될 위치는 dirid, 사용자 정의로 경로로 정의할 수 있다.
+
+dirid는 시스템에서 이미 정의돼 있는 경로다.
+사용하는 값의 위치는 다음과 같다.
+
+* 10 - C:\Windows
+* 11 - C:\Windows\System32
+* 12 = C:\Windows\System32\Drivers
+* 1 - 절대 경로
+
+원형
+[DefaultDestDir=dirid[,subdir]]
+예제
+[DestinationDirs]
+HajeDriverFiles=12
+HajeUSBDrvierFiles=12
+[HajeDriverFiles]
+SimpleHajeDriver.sys
+[HajeUSBDriverFiles]
+SimpleHajeUSBDriver.sys
+
+이 섹션에서 주의할 것은 다음과 같다.
+장치가 연결돼 드라이버를 설치할 때, 이 INF에서 기술한 모든 드라이버 파일이 지원하지 않는 장치라고 하더라도 복사될 것인가 아니면 해당하는 장치를 지원하는 드라이버 파일만 복사될 것인가를 고려해 이 섹션을 구성해야 한다.
+위 예제는 2개의 제조사를 지원하는 드라이버라고 가정한 예제다.
+
+### 1.4.5 Manufacturer 섹션
+
+Manufacturer 섹션은 하나 또는 여러 장치의 제조사 장치를 지원하는 드라이버일 경우 사용하는 섹션으로, 필요에 따라 제조사, 아키텍처, 운영체제별로 어떤 장치를 지원할 것인지 정의할 수 있다.
+
+원형
+[manufacturer-identifier]
+%strkey%=models-section-name |
+%strkey%=models-section-name [, TargetOSVersion] [, TargetOSVersion]
+예제
+[Manufacturer]
+%Manufacturer%    =Standard,NTx86,NTamd64
+%ManufacturerUSB% =USBStandard,NTx86,NTamd64
+
+위 보기를 보면 Standard, USBStandard가 Models 섹션이고 그 뒤에 오는 것이 운영체제 구분자다.
+위 보기 예제는 운영체제 아키텍처만 구분하고 있다.
+이 섹션에서 기술한 내용은 Models 섹션에서 구체적으로 각 제조사별로 지원하는 장치를 정의한다.
+운영체제 아키텍처 말고도 운영체제 버전, 운영체제 타입(서버, 워크스테이션..) 등을 추가해 지원하는 운영체제를 좀 더 세밀하게 구분할 수 있다.
+
+### 1.4.6 Stirngs 섹션
+INF 파일 내에서 각 섹션마다 문자열 변수에 대치되는 실제 문자열을 Strings 섹션에 정의한다.
+
+원형
+[Strings] |
+[Strings.LanguageID] ...
+strkey1 = ["]some string["]
+strkey2 = "string-with-leading-or-trailing-whitespace" |
+          "very-long-multiline-string" |
+          "string-with-semicolon" |
+          "string-ending-in-backslash" |
+          ""double-quoted-string-value""
+예제
+[Strings]
+Manufacturer    ="HAJE Legacy"
+ManufacturerUSB ="HAJE USB"
+ClassName       ="EXAMPLEDRIVER"
+DeviceDesc      ="HajeSoft SIMPLE DRIVER"
+
