@@ -371,3 +371,37 @@ Delfiles와 마찬가지로 단일 파일명을 정의할 수 없고 섹션을 �
 |HKLM|HKEY_LOCAL_MACHINE|
 |HKU|HKEY_USERS|
 |HKR|DDInstall</br> * Software Key</br>DDInstall.HW</br> * Hardwrae Key</br> DDInstall.Service</br> * Service Key|
+
+위 표에서는 INF에서 사용되는 레지스트리 예약 이름이 실제 어떤 곳을 나타내는지를 정리해서 보여준다.
+INF에서 사용되는 레지스트리 예약 이름은 각각 해당하는 레지스트리 키의 루트키를 나타낸다.
+
+HKR은 다른 약어와는 다르게 루트가 아닌 특정 경로를 나타낸다.
+또 DDinstlall 섹션 어디에서 사용됐는지에 따라 그 경로가 달라진다.
+
+**LogConfig=log-config-section[,log-config-section]**
+* 드라이버 설치 과정에서 드라이버가 사용할 입출력 자원 및 속성에 대해 정의할 때 사용한다. 구형 장치들이 사용한다.
+
+**AddReg=add-registry-section[,add-registry-section]**
+* 드라이버가 설치될 때 생성해야 하는 레지스트리 키가 있다면 기술한다. 장치가 연결됐을 때 어떻게 동작할 것인지 초기화하는 용도로 많이 사용한다.
+
+#### 1.4.8.2 DDInstall.Service 섹션
+
+DDInstall.Servcie 섹션은 드라이버에서 사용하는 서비스에 대한 내용을 정의한다.
+하나 또는 그 이상의 내용을 정의할 수 있다.
+
+원형</br> 
+[install-section-name.Services] |</br>
+[install-section-name.nt.Services] |</br> 
+[install-section-name.ntx86.Services] |</br> 
+[install-section-name.ntia64.Servcies] | (Windows XP and later versions of Windows)</br> 
+[install-section-name.ntamd64.Services] (Windows XP and later versions of Windows) </br> 
+예제 </br> 
+[HAJE_SIMPLEDriVER.Services]</br> 
+AddService = **SimpleHajeDrvier** ,0x00000002 ,Simple_Service_Inst</br> 
+[HAJE_SIMPLEUSBDRIVER.Services]</br> 
+AddService = simpleHajeUSBDriver ,0x00000002 ,Simple_USB_Service_Inst</br> 
+[Simple_Service_Inst]</br> 
+ServiceType    = 1</br> 
+StartType      = 3</br> 
+ErrorControl   = 1</br> 
+ServiceBinary  = %12%\SimpleHajeDr.sys</br> 
