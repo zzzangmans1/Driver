@@ -315,3 +315,64 @@ ManufacturerUSB ="HAJE USB"
 ClassName       ="EXAMPLEDRIVER"
 DeviceDesc      ="HajeSoft SIMPLE DRIVER"
 
+### 1.4.7 Models 섹션
+
+Manufacturer 섹션에서 정의한 내용이 구체적으로 어떤 장치를 지원할 것인지 기술하는 섹션이다.
+제조사별로 구분해야 하기 때문에 이 섹션은 딱히 이름이 정해져 있지 않다.
+Manufacturer에서 기술한 내용이 Models 섹션이 된다.
+Mdoels 섹션에서는 각각의 장치마다 어떻게 설치될 것인가를 정의하는 DDisntall 섹션을 기술한다.
+
+원형
+[models-section-name] |
+[model-section-name.TargetOSVersion] (Windows XP and later versions of Windows)
+device-description=install-section-name[, hw-id][,compatible-id...]
+[device-description=install-section-name[, hw-id][,compatible-id...] ...
+
+예제
+[Standard.NTx86]
+%DeviceDesc%=HAJE_SIMPLEDRIVER,SimpleHajeDrvier
+[Standard.NTamd64]
+%DeviceDesc%=HAJE_SIMPLEDRIVER,SimpleHajeDrvier
+[USBStandard.NTx86]
+%USB\VID_0403&PID_6001.DeviceDesc%=HAJE_SIMPLEUSBDRIVER, USB\VID_0403&PID_6001
+%USB\VID_067B&PID_2303.DeviceDesc%=HAJE_SIMPLEUSBDRIVER, USB\VID_067B&PID_2303
+[USBStandard.NTamd64]
+%USB\VID_0403&PID_6001.DeviceDesc%=HAJE_SIMPLEUSBDRIVER, USB\VID_0403&PID_6001
+%USB\VID_067B&PID_2303.DeviceDesc%=HAJE_SIMPLEUSBDRIVER, USB\VID_067B&PID_2303
+
+위 보기의 예제를 보면 HAJE_SIMPLEUSBDRIVER, HAJE_SIMPLEDRIVER 2개가 DDInstall 섹션이고 그 뒤에 기술된 것이 장치를 구분하는 디바이스 ID다.
+
+### 1.4.8 DDInstall 섹션
+
+Models 섹션에서 정의한 install-Section이 DDInstall 섹션이다.
+이 섹션에서는 설치할 내용을 구체적으로 설명한다.
+
+#### 1.4.8.1 DDInstall 섹션 지시자
+**CopyFile=@filename|file-list-section[,file-list-section]**
+* DestinationDirs 섹션에서 정의한 파일 또는 섹션을 이곳에 기술한다. 어떤 드라이버가 설치될 것인가를 결정한다.
+
+**CopyINF=filename1.inf[,filename2.inf]...**
+* 드라이버 설치 과정 중에 복사돼야 하는 INF 파일이 있는 경우 사용한다. 단, 현재 INF 파일을 기술할 필요는 없다.
+
+**Delfiles=file-list-section[,file-list-section]**
+* 드라이버 설치 과정 중에 삭제해야 하는 파일이 있다면 사용된다. CopyFiles와 달리 파일 리스트가 정의된 섹션만 기술해야 한다.
+
+**Renfiles=file-list-section[,file-list-section]**
+* 드라이버 설치 과정에서 파일 이름이 변경돼야 하는 파일이 있는 경우 사용한다.
+Delfiles와 마찬가지로 단일 파일명을 정의할 수 없고 섹션을 기술해야 한다.
+
+**DelReg=del-registry-section[,del-registry-section]**
+* 드라이버 설치 과정 중에 삭제해야 하는 레지스트리 키가 있다면 사용한다. 레지스트리에 대한 정보는 섹션에 정의해야 한다.
+
+|축약어|Reg root string|
+|--|--|
+|HKCR|HKEY_CLASSES_ROOT|
+|HKCU|HKEY_CURRENT_USER|
+|HKLM|HKEY_LOCAL_MACHINE|
+|HKU|HKEY_USERS|
+|HKR|DDInstall
+* Software Key
+DDInstall.HW
+* Hardwrae Key
+DDInstall.Service
+* Service Key|
