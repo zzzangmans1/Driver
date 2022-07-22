@@ -405,3 +405,84 @@ ServiceType    = 1</br>
 StartType      = 3</br> 
 ErrorControl   = 1</br> 
 ServiceBinary  = %12%\SimpleHajeDr.sys</br> 
+LoadOrderGroup = Extended Base</br> 
+[Simple_USB_Service_Inst]</br> 
+Servicetype    = 1</br> 
+StartType      = 3</br> 
+ErrorControl   = 1</br> 
+ServiceBinary  = %12%\SimpleHajeUSBDriver.sys</br> 
+LoadOrderGroup = Extended Base</br> 
+
+위 예제에서 HAJE_SIMPLEDRIVER.Services, HAJE_SIMPLEUSBDRIVER.Service 이 두 섹션을 보자
+
+이 두 섹션 내용에서 AddService에 바로 보이는 SimpleHajeDriver, SimpleHajeUSBDriver 두 가지가 서비스의 이름이다.
+서비스 키를 정의하는 과정에서 조심해야 할 상황이 있다.
+
+서로 다른 하드웨어 ID를 가지는 장치를 시스템에 연결할 떄, 다음과 같은 두 가지 상황은 허용되지 않는다.
+* 같은 서비스 이름을 사용하면서 실제 드라이버는 다른 경우
+* 서로 다른 서비스 이름을 사용하면서 실제 드라이버 경로는 같은 경우
+
+따라서 각각 서로 다른 서비스 이름을 사용해야 한다.
+
+AddService=ServiceName,[flags],service-install-section
+                       [,event-log-install-section[,[EventLogType]
+                        [,Eventname]]]...]
+                        
+* AddService에 등록하는 섹션은 이 드라이버의 서비스 내용을 기술한다.
+
+**ServiceType=type-code**
+* 서비스의 종류를 나타내는 지시자다. 드라이버 같은 경우는 1로 사용한다. 서비스 종류를 나타내는 값은 다음과 같다.
+ * 0x00000001: SERVICE_KERNEL_DRIVER
+ * 0x00000010: SERVICE_WIN32_OWN_PROCESS
+ * 0x00000020: SERVICE_WIN32_SHARE_PROCESS
+ * 0x00000100: SERVCIE_FILE_SYSTEM_DRIVER
+ 
+ **StartType=start-code**
+ * 드라이버가 시작하는 시기를 결정하는 지시자다. USB와 같이 PNP를 지원하는 장치라면 0x3을 많이 사용한다. 0x03은 수동의 의미로, 드라이버를 메모리에 상주시키거나 메모리로부터 해제하는 시기가 평상시 아무 때나 발생할 수 있음을 말한다.
+ 
+ **ServcieBinary=path-to-service**
+ * 서비스에서 사용되는 드라이버 파일의 경로를 나타내는 지시자다. 이 지시자에 기술된 드라이버가 장치가 연결됐을 때 로드된다.
+ 
+ **DelService=ServiceName[,[flags][,[EventLogType][,EventName]]]
+ * 드라이버가 설치될 때 삭제해야 하는 서비스가 있을 때 사용한다. 플래그 값은 다음과 같이 두 가지가 사용될 수 있다.
+  * 0x00000004: 서비스 이름과 연관된 이벤트 로그를 모두 제거한다.
+  * 0x00000200: 서비스를 삭제하기 전에 서비스를 중지한다.
+  
+  
+## 1.5 빌드
+
+드라이버를 빌드하는 방법으로, WDK 7600까지는 콘솔을 이용했지만 WDK 8.0부터는 비주얼 스튜디오를 사용하도록 변경됐다.
+그래서 현재는 윈도우XP를 지원하는지 여부에 따라 빌드하는 방법이 나눠진다.
+만약 윈도우XP와 윈도우8을 지원해야 하는 드라이버라면, 윈도우XP는 콘솔로빌드해야 하고 윈도우8은 비주얼 스튜디오에서 빌드해야 할 것이다.
+이번에는 빌드하는 법에 대해 간략하게 소개하려고 한다.
+윈도우XP를 빋드하려면 WDK 7600이 설치돼 있어야 한다.
+물론 윈도우 비스타 이전에 사용되던 DDK를 설치해도 상관은 없지만 WDK가 윈도우7까지 빌드가 가능하니 가능하면 WDK 7600을 설치하는 것이 좋다.
+시작 메뉴에서 Windows Driver Kits 경로로 가면 Build Environments라는 폴더가 보인다.
+이 폴더 안에 운영체제별로 빌드할 수 있는 컴파일러의 단축 아이콘이 있다.
+
+### 1.5.1 WDK 7600 콘솔 빌드 환경
+
+콘솔 창에서 빌드해야 하는 경우에는 빌드하기 위해 빌드할 대상의 소스가 포함된 경로에 다음의 파일들이 있어야 한다.
+MAKEFILE 파일, Source 파일, 소스 파일들(C, C++, ASM, RC)
+WDK가 제공하는 예제 경로에 들어가 있는 MAKEFILE 중 하나를 복사해서 사용해도 무방하다.
+그렇기 때문에 개발자가 실제로 작성해야 하는 부분은 Sources 파일과 소스 파일들이다.
+
+Sources 파일에는 크게 네 가지의 매크로를 필수로 정의해야 한다.
+* TARGETNAME: 생성될 드라이버 파일의 이름이다.
+* TARGETTYPE: 빌드할 대상의 유형을 정한다.
+* SOURCES: 빌드할 때 필요한 소스 코드를 정의한다.
+* TARGETLIBS: 소스 코드에서 사용한 헤더 파일의 라이브러리를 정의한다.
+
+물론 이것 말고도 여러 가지 다양한 기능의 매크로가 존재한다.
+콘솔 창에서 드라이버 소스와 MAKEFILE, Sources 파일이 들어 있는 경로로 이동한 뒤, Build 명령어를 실행하면 드라이버가 빌드되기 시작한다.
+
+### 1.5.2 EWDK 빌드 환경
+
+마이크로소프트는 응용프로그램을 빌드하는 데 사용하는 SDK와 드라이버를 빌드하는 데 사용하는 WDK를 모두 비주얼 스튜디오 환경 아래에서 통합적으로 사용하기 위해서 여러 가지 시도를 해왔다.
+최근 비주얼 스튜디오 2017환경은 SDK, WDK를 모두 통합해 관리하고 있다.
+이제 사용자는 두 가지 툴을 모두 설치하고 비주얼 스튜디오 환경 아래에서 응용 프로그램과 드라이버를 모두 빌드할 수 있다고 소개하고 있다.
+
+하지만, 아직까지 원활하게 빌드가 잘 되지 않는 환경들이 많이 발견되고 있기 때문에, 여기서는 드라이버를 빌드할 때만 EWDK를 대신 사용하기로 한다.
+응용프로그램을 빌드하는 경우는 비주얼 스튜디오를 그대로 사용하는 것으로 하곘다.
+
+
