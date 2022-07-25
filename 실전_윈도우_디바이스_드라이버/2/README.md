@@ -212,3 +212,14 @@ IRP_MJ_CLOSE 명령어가 전달되는 상황은 조금 복잡하다.
 |*TmResourceManagerObjectType|PKRESOURCEMANAGER
 |*TmTransactionManagerObjectType|PKTM
 |*TmTransactionObjectType|PKTRANSACTION
+
+이들 중 PFILE_OBJECT의 참조횟수 입장에서 볼 때, 클라이언트 측에서 IRP_MJ_CLOSE IRP 명령어를 전송하고자 하더라도 조건에 맞지 않으면 이 명령어는 바로 전송되지 못한다.
+더 이상 PFILE_OBJECT의 참조가 없는 것이 보장돼야 IRP_MJ_CLOSE IRP 명령어가 전달된다.
+
+응용프로그램 클라이언트 측에서 API CloseHandle 함수를 호출할 때 xxxfunction.sys 드라이버에 IRP_MJ_CLOSE IRP가 전달되고 있다.
+물론, 해당하는 IRP와 관련 있는 PFILE_OBJECT의 참조가 더 이상 없다고 보장될 때 해당하는 내용이다.
+
+IRP_MJ_CLOSE IRP 명령어도 IRP_MJ_CREATE IRP 명령어와 마찬가지로 파라미터 전달 방식을 사용한다.
+입출력 파라미터는 특별히 없으며, 완료 요청 시 적당한 완료 상태값을 사용해야 한다.
+
+
