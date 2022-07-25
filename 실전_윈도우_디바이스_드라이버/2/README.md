@@ -222,4 +222,23 @@ IRP_MJ_CLOSE 명령어가 전달되는 상황은 조금 복잡하다.
 IRP_MJ_CLOSE IRP 명령어도 IRP_MJ_CREATE IRP 명령어와 마찬가지로 파라미터 전달 방식을 사용한다.
 입출력 파라미터는 특별히 없으며, 완료 요청 시 적당한 완료 상태값을 사용해야 한다.
 
+**IRP_MJ_READ(0x03)**
+IRP_MJ_READ 명령어는 그 의미에서 유추할 수 있듯이 무엇인가 데이터를 읽는 목적으로 사용된다.
+그렇기 때문에 드라이버 개발자는 처리할 내용이 있을 것이라고 추측할 수 있다.
+
+IRP_MJ_CREATE 명령어가 성공적인 완료를 보고하고 나면, 클라이언트는 IRP_MJ_READ 명령어를 담은 IRP를 전송할 수 있다.
+
+IRP.AssociatedIrp.SystemBuffer와 IRP.MdlAddress 필드는 둘 다 클라이언트가 제공하는 버퍼와 관련 있다.
+전자는 IO 매니저가 새롭게 생성해주는 임시 버퍼 주소가 보관돼 있지만, 클라이언트가 제공하는 버퍼와 전혀 무관하게 동작하지 않는다.
+
+**IRP_MJ_WRITE(0x04)**
+IRP_MJ_WRITE 명령어는 IRP_MJ_READ 명령어와 동일한 파라미터를 사용한다.
+단지, 응용프로그램이 제공하는 버퍼의 내용이 드라이버에 전달되는 점에서 방향만 반대다.
+
+**IRP_MJ_DEVICE_CONTROL(0x0E)**
+IRP_MJ_DEVICE_CONTROL 명령어가 IRP_MJ_READ, IRP_MJ_WRITE 명령어와 다른 특징으로 두 가지를 꼽을 수 있다.
+하나는 버퍼가 최대 2개까지 동시에 사용될 수 있다는 점이고 다른 하나는 별도의 IO 컨트롤 코드가 사용된다는 점이다.
+
+IRP_MJ_READ, IRP_MJ_WRITE 명령어에서는 하나의 버퍼가 사용되면서 그 사용되는 방향만 서로 반대였다.
+IRP_MJ_DEVICE_CONTROL 명령어는 필요에 따라서 2개의 입출력 버퍼를 각각 사용할 수 있다.
 
