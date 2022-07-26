@@ -242,9 +242,143 @@ IRP_MJ_DEVICE_CONTROL 명령어가 IRP_MJ_READ, IRP_MJ_WRITE 명령어와 다른
 IRP_MJ_READ, IRP_MJ_WRITE 명령어에서는 하나의 버퍼가 사용되면서 그 사용되는 방향만 서로 반대였다.
 IRP_MJ_DEVICE_CONTROL 명령어는 필요에 따라서 2개의 입출력 버퍼를 각각 사용할 수 있다.
 
-|애플리케이션 클라이언트</br>(사용자 레벨)
-|--|--|--|--|--|
-|CreateFile|ReadFile|WriteFile|DeviceIoControlFile|WriteFile
-|IRP_MJ_CREATE|IRP_MJ_READ|IRP_MJ_WRITE|IRP_MJ_DEVICE_CONTROL|IRP_MJ_CLOSE
-|ZwCreateFile|ZwReadFile|ZxWriteFile|ZwDeviceIoControlFile|ZwClose
-|드라이버 클라이언트</br>(커널 레벨)
+#### 2.2.1.2 IRP 완료
+
+드라이버는 자신이 받은 IRP는 자신의 것으로 간주하는데, 이것은 중요한 의미를 담고 있다.
+일단 전달된 IRP를 받은 드라이버는 어떻게 해서라도 해당하는 IRP를 처리해야 한다는 것이다.
+
+IRP를 처리하는 방법에는 크게 세 가지가 있다.
+* IRP를 다른 드라이버에 전달하는 방법
+* IRP를 성공 혹은 에러 상태로 완료하는 방법
+* IRP를 취소하는 방법
+
+IRP에 포함된 명령어 IRP_MJ_XXX를 해석하는 과정 중에 드라이버가 일정한 시간을 소요해야 하는 상황도 있다.
+
+일단 전달될 IRP는 드라이버의 것이다.
+다만 일정한 시간을 기다려야 결과가 도출되는 상황이라면, 드라이버는 현재 스레드를 블로킹시키지 않고 호출자에게 STATUS_PENDING 리턴값을 가지고 돌아가야 한다.
+이렇게 하지 않으면 효과적인 윈도우 플그램 환경을 사용자가 경험하지 못하게 된다.
+
+유념할 부분은 STATUS_PENDING 값을 사용해서 리턴한다고 해도 여전히 IRP는 드라이버의 소유라는 점이다.
+이것은 결국 드라이버에 의해 언젠가는 해당하는 IRP를 완료해야 한다는 의미다.
+
+**성공 혹은 에러의 값을 사용해 IRP 완료하기**
+
+``` C
+NTSTATUS xxxfunction`s IRP 처리 함수(..)
+{
+  ...
+  Irp->IoStatus.Status = STATUS_SUCCESS; // 혹은 에러값
+  Irp->IoStatus.Information = ReadResultSize;
+  // 실제로 수행한 크기값(바이트 단위)
+  IoCompleteRequest(Irp, IO_NO_INCREMENT); // IO_NO_INCREAMENT(0)
+  return STATUS_SUCCESS; // 함수가 리턴값을 요구하므로..
+}
+```
+
+**취소의 값을 사용해 IRP 완료하기**
+
+드라이버에서 IRP를 취소하는 이유는 해당하는 IRP를 더 이상 처리하고 싶지 않기 때문이다.
+이와 같은 상황에서 IRP를 가지고 있을 필요가 없는 드라이버는 취소의 값을 사용해서 IRP를 완료한다.
+
+``` C
+// 드라이버가 작성하는 CancleRoutine 등록 함수(WDK)
+PDRIVER_CANCEL
+  IoSetCancelRoutine(
+    IN PIRP Irp,
+    IN PDRIVER_CANCEL CancelRoutine
+  ); 
+``` C
+// 드라이버가 작성하는 CancelRoutine의 프로토타입
+VOID
+(*PDRIVER_CANCEL)(
+  IN PDEVICE_OBJECT DeviceObject,
+  IN PIRP Irp
+);
+```
+
+``` C
+CancelRoutine 혹은 특정루틴()
+{
+  ...
+  Irp->IoStatus.Status = STATUS_CANCEL; // 취소를 의미한다.
+  IoCompleteRequest(Irp, IO_NO_INCREMENT); // IO_NO_INCREAMENT(0)
+}
+```
+
+이와 같이 상태값으로 STATUS_CANCEL 값을 사용해서 IRP를 완료하는 것을 취소 완료라고 한다.
+
+**STATUS_PENDING 값을 사용해서 호출자에게 돌아가기**
+
+``` C
+NTSTATUS xxxfunction`s IRP 처리함수(...)
+{
+  ...
+  IoMarkIrpPending(Irp);  // 1
+  return STATUS_PENDING;
+}
+```
+
+`1`은 IoMarkIrpPending() 함수를 사용해서 현재 IRP를 비동기적으로 처리할 것이라는 사실을 알린다.
+비동기적으로 처리한다는 것은 지금 IRP를 처리할 것이 아니라, 다른 문맥에서 처리할 것이라는 의미다.
+
+**받은 IRP를 다른 드라이버에게 넘겨주기**
+받은 IRP를 다른 드라이버에게 넘겨주는 작업은 xxxfunction.sys 드라이버 입장에서는 귀찮은 일이다.
+보통 응용프로그램 클라이언트로부터 요청되는 CreateFile(), ReadFile(), WriteFile(), DeviceIoControl(), CloseHandle()과 같은 함수에 의해 발생되는 IRP는 xxxfunction 드라이버가 직접 처리해야 한다.
+
+뒤에서 살펴볼 IRP_MJ_PNP, IRP_MJ_POWER와 같은 명령어를 담고 있는 IRP가 대표적이다.
+드라이버는 디바이스 스택을 구성하는 하나의 구성 요소일 뿐이다.
+따라서 디바이스 스택을 구성하고 있는 다른 드라이버들과 함께 공유해야 하는 IRP_MJ_PNP, IRP_MJ_POWER와 같은 명령어는 반드시 디바이스 스택을 구성하고 있는 모든 드라이버들이 골고루 처리해야 한다.
+이런 경우 드라이버는 자신이 받은 IRP에 대한 소유권을 다른 드라이버에 넘겨주는 행위의 표현으로 IoCallDriver() 함수를 사용한다.
+
+```C
+// WDK가 제공하는 IRP 스택 위치 관련 함수 중 일부분
+PIO_STACK_LOCATION
+  IoGetCurrentIrpStackLocation(
+    IN PIRP Irp
+  ); // 1
+PIO_STACK_LOCATION
+  IoGetNextIrpStackLocation(
+    IN PIRP Irp
+  ); // 1
+PIO_STACK_LOCATION
+  IoSkipCurrentIrpStackLocation(
+    IN PIRP Irp
+  ); // 1
+PIO_STACK_LOCATION
+  IoCopyCurrentIrpStackLocationToNext(
+    IN PIRP Irp
+  ); // 1
+```
+
+`1`, `2`의 함수는 IRP 구조체의 그 어떤 필드의 내용도 변경하지 않는다. 단지 현재 스택 위치와 다음 스택 위치 주소만을 가져온다.
+`3`의 함수는 IRP의 현재 스택 위치를 이전 스택 위치로 옮기는 작업을 수행한다.
+`4`의 함수는 IRP의 현재 스택 위치에 보관된 내용들 중 일부분을 다음 스택 위치로 복사하는 작업을 수행한다.
+
+``` C
+// WDK가 제공하는 IoCopyCurrentIrpStackLocationToNext 함수 내용
+VOID
+IoCopyCurrentIrpStackLocationToNext(
+  PRIP Irp
+)
+{
+  PIO_STACK_LOCATION irpSp;
+  PIO_STACK_LOCATION nextIrpSp;
+  irpSp = IoGetCurrentIrpStackLocation(Irp);
+  nextIrpSp = IoGetNextIrpStackLocation(Irp);
+  RtlCopyMemory(nextIrpSp, irpSp,
+              FIELD_OFFSET(IO_STACK_LOCATION, CompletionRoutine)); // 1
+  nextIrpSp->Control = 0; // 2
+}
+```
+
+위 코드는 IoCopyCurrentIrpStackLocationToNext() 함수가 IRP의 현재 스택위치의 내용을 다음 스택 위치로 복사하는 과정을 보여주고 있다.
+이때 `1`에서 보면, IO_STACK_LOCATION 구조체의 CompletionRoutine 필드 이전까지만 복사하는 것을 알 수 있다.
+
+중급개발자가 알아야 할 사항이지만, `2`와 같이 Control 필드의 값이 0으로 지워지는 것도 기억해야 한다.
+Control 필드는 IoSetCompletionRoutine() 함수와 IoMarkIrpPending() 함수에 의해 변경되는 필드다.
+
+### 2.2.2 필수 루틴
+WDM 드라이버를 작성하는 데 있어서 IRP_MJ_CREATE, READ, WRITE, DEVICE_CONTROL, CLOSE 명령어를 처리해야 할 의무는 없다.
+이것들을 처리할 루틴은 응용프로그램과의 통신을 위해 필요하므로 드라이버가 가져야 할 필수 루틴은 아니다.
+이와 달리, 다음 절에서 소개하는 5개의 루틴들은 반드시 가져야 한다.
+WDM 드라이버인 경우에 이들 중에서 어느 하나를 빼면 정상적인 동작을 보장받기가 어렵다.
