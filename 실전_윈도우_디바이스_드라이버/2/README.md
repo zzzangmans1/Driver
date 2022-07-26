@@ -242,8 +242,8 @@ IRP_MJ_DEVICE_CONTROL 명령어가 IRP_MJ_READ, IRP_MJ_WRITE 명령어와 다른
 IRP_MJ_READ, IRP_MJ_WRITE 명령어에서는 하나의 버퍼가 사용되면서 그 사용되는 방향만 서로 반대였다.
 IRP_MJ_DEVICE_CONTROL 명령어는 필요에 따라서 2개의 입출력 버퍼를 각각 사용할 수 있다.
 
-|애플리케이션 클라이언트</br>(사용자 레벨)|
-|--|
+|애플리케이션 클라이언트</br>(사용자 레벨)
+|--
 |CreateFile|ReadFile|WriteFile|DeviceIoControlFile|WriteFile
 |IRP_MJ_CREATE|IRP_MJ_READ|IRP_MJ_WRITE|IRP_MJ_DEVICE_CONTROL|IRP_MJ_CLOSE
 |ZwCreateFile|ZwReadFile|ZxWriteFile|ZwDeviceIoControlFile|ZwClose
