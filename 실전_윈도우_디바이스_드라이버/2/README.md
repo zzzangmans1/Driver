@@ -382,3 +382,41 @@ WDM 드라이버를 작성하는 데 있어서 IRP_MJ_CREATE, READ, WRITE, DEVIC
 이것들을 처리할 루틴은 응용프로그램과의 통신을 위해 필요하므로 드라이버가 가져야 할 필수 루틴은 아니다.
 이와 달리, 다음 절에서 소개하는 5개의 루틴들은 반드시 가져야 한다.
 WDM 드라이버인 경우에 이들 중에서 어느 하나를 빼면 정상적인 동작을 보장받기가 어렵다.
+
+#### 2.2.2.1 DrvierEntry
+
+디바이스 드라이버가 메모리에 상주하는 의미로 호출될 콜백 함수다.
+따라서 드라이버가 메모리에 상주하면서 필요한 전역변수를 준비해야 한다.
+같은 종류의 드라이버는 절대로 두 번 이상 메모리에 함께 상주하지 않는다.
+
+```C
+NTSTATUS
+DriverEntry(
+  IN PDRIVER_OBJECT DriverObject, // 1
+  IN PUNICODE_STRING RegistryPath // 2
+);
+```
+
+`1`에서는 WDM 드라이버를 추상화하는 자료구조 DriverObject의 주소를 담고 있다.
+하나의 드라이버는 하나의 DriverObject를 사용한다.
+IO 매니저에 의해 준비된다.
+`2`에서 WDM 드라이버는 Win32 서비스와 같은 형태로 관리된다.
+서비스 프로그램들은 시스템 레지스트리에 지정된 위치에 자신을 기록하게 돼 있으며, RegistryPath는 이곳의 키 이름을 담고 있다.
+WDM 드라이버가 선택적으로 이곳을 사용해서 필요한 파라미터들을 보관하거나 읽는 용도로 작성될 수 있다.
+
+``` C
+// WDM 드라이버 DriverEntry() 에제 코드
+NTSTATUS
+DriverEntry(
+  IN PDRIVER_OBJECT DriverObject,
+  IN PUNICODE_STRING RegistryPath
+)
+{
+  NTSTATUS returnStatus = STATUS_SUCCESS;
+  DriverObject->DriverUnload = SAMPLE_Unload; // 1
+  DriverObject->DriverExtension->AddDevice = SAMPLE_AddDevice; // 2
+  DriverObject->MajorFunction[IRP_MJ_PNP] = SAMPLE_PnpDispatch; // 3
+  DriverObject->MajorFunction[IRP_MJ_POWER] = SAMPLE_PowerDispatch; // 4
+  return returnStatus;
+}
+```
