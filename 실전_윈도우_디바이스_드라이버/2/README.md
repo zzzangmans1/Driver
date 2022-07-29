@@ -684,3 +684,111 @@ WDM 디바이스 드라이버를 작성하기 위해 필수적으로 알아야 �
 이번에는 이 중에서 세 가지 개념을 설명하려고 한다.
 이것들은 드라이버 코딩을 하는 과정에서 자주 언급되는 내용이므로 꼭 숙지하길 바란다.
 
+#### 2.2.3.1 IoSkipCurrentIrpStackLocation
+
+IoSkipCurrentIrpStackLocation 함수는 WDK가 제공하며 실전에서 자주 사용된다.
+이름 자체를 해석하면, IRP의 현재 스택을 버린다는 뜻이다.
+이 말은 이 함수를 호출할 당시의 드라이버가 소유하던 IRP의 소유권을 다음 드라이버에 넘긴다는 뜻으로 사용된다.
+
+``` C
+// IoSkipCurrentIrpStackLocation() 함수 사용 예제 코드
+NTSTATUS SAMPLE_PnpDispatch(
+  IN PDEVICE_OBJECT DeviceObject,
+  IN PRIP Irp)
+{
+  // 생략
+  pStack = IoGetCurrentIrpStackLocation(Irp);
+  deviceExtension = DeviceObject->DeviceExtension;
+  NextLayerDeviceObject = deviceExtension->NextLayerDevcieObject;
+  
+  switch(pStack->MinorFunction){
+    case IRP_MN_REMOVE_DEVICE: // 1
+      IoDetachDevice(NextLayerDeviceObject);
+      IoDeleteDevice(DeviceObject);
+      break;
+  }
+  IoSkipCurrentIrpStackLocation(Irp); // 2
+  return IoCallDriver(NextLayerDeviceObject, Irp); // 3
+}
+```
+
+위 코드는 IRP_MJ_PNP 명령어를 처리하는 샘플 드라이버의 PnpDispatch 코드의 일부분을 보여준다.
+`1`의 IRP_REMOVE_DEVICE는 앞 절에서 배웠던 대로 선 처리해야 하는 대표적인 명령어다.
+위 코드처럼 이 명령어의 경우 드라이버는 수행할 작업을 우선 수행한 뒤, `2`의 IoSkipCurrentIrpStackLocation() 함수를 호출하고 있다.
+이제 IRP의 소유권은 다음 계층의 드라이버에게 넘어간다.
+이후 `3`의 IoCallDriver() 함수를 호출해 다음 계층의 드라이버에 IRP를 전달하고 있다.
+
+이와 같이 드라이버가 IRP를 처리하는 방법 중에 선처리를 하는 경우 자주 사용될 수 있는 코드 흐름이므로 이 내용을 잘 기억해두길 바란다.
+
+#### 2.2.3.2 완료 루틴
+
+여기서는 완료 루틴을 설정하는 방법과 완료 루틴을 작성하는 방법에 대해서만 다루도록 하겠다.
+설명을 위해 IRP를 전달하는 드라이버를 '전달자', IRP를 수신하는 드라이버를 '수신자'라고 정의하자.
+
+완료 루틴은 전달자가 설정한다.
+전달자는 IRP를 수신자에게 전달하면서, IRP가 완료 요청되는 시기를 알고자 완료 루틴을 설정한다.
+완료 루틴은 IoCompleteRequest() 함수에 의해 호출된다.
+
+``` C
+// WDK IoCompleteRequest 함수 프로토타입
+VOID
+  IoSetIoCompleteRequest(
+    IN PIRP Irp,
+    IN PIO_COMPLETION_ROUTINE CompletionRoutine, // 1
+    IN PVOID Context,
+    IN BOOLEAN InvokeOnSuccess, // 2
+    IN BOOLEAN InvokeOnError,
+    IN BOOLEAN InvokeOnCancel
+  );
+```
+
+전달자는 IoCompleteRequest 함수를 사요애서 `1`의 완료 루틴을 설정한다.
+이때 코드의 `2` 부분에서 성공, 에러, 취소의 상태 중 어떤 상태로 완료될 때 완료 루틴이 호출되기를 원하는지를 지정하고 있다.
+`2`의 파라미터에서 사용되는 성공, 에러, 취소는 함께 지정될 수 있다.
+이와 같이 설정된 완료 루틴의 프로토타입은 밑의 코드와 같다.
+
+``` C
+// WDK에서 정의한 CompletionRoutine 프로토타입
+typedef
+NTSTATUS // 특별한 리턴값이 사용될 수 있다.
+IO_COMPLETION_ROUTINE(
+  PDEVICE_OBJECT DeviceObject, // 1
+  PIRP Irp,
+  PVOID Context 
+);
+```
+
+위 코드에서 볼 수 있는 CompletionRoutine의 `1` 파라미터는 완료 루틴을 설정한 드라이버의 소유 DeviceObject가 담겨진다.
+이 필드의 값이 NULL일 수도 있는데, 이것은 해당하는 IRP를 전달자가 직접 생성해 수신자에게 전달하는 경우에 해당한다.
+보통 전달자가 자신이 다른 전달자로부터 전달한 IRP를 수신한 뒤, 이를 사용해서 또 다른 수신자에게 전달하는 경우에는 이 필드의 값으로는 정상적인 값이 사용된다.
+
+위 코드를 보면 CompletionRoutine은 특별한 리턴값이 사용될 수 있음을 알 수 있다.
+이 값은 'STATUS_MORE_PROCESSING_REQUIRED'다.
+이 의미를 그대로 해석해보면, '해당하는 IRP를 완료하려면 조금 더 다른 처리가 필요하다!'는 뜻이 된다.
+
+이 값이 아닌 다른 값을 리턴하는 경우에만, IoCompleteRequest(0 함수는 해당하는 IRP를 완료시키고 메모리에서 IRP를 해제한다.
+그래서 드라이버가 자신의 CompletionRoutine에서 STATUS_MORE_PROCESSING_REQUIRED 값을 리턴하면 해당하는 IRP의 완료 작업은 중지되므로, 현재 IRP의 소유권이 드라이버 본인에게 돌아온다는 것을 기억해야 한다.
+
+CompletionRoutine을 작성할 떄 마지막으로 유의할 점이 하나 더 있다.
+Completion Routine에서 STATUS_MORE_PROCESSING_REQUIRED 값이 아닌 다른 값을 리턴하는 경우 반드시 호출해야 하는 함수가 있는데, 그것이 바로 IoMarkIrpPending() 함수다.
+IoMarkIrpPending() 함수는 해당하는 IRP가 비동기적으로 완료될 수 있다는 것을 명시한다.
+
+``` C
+// IoMarkIrpPending() 함수와 CompletionRoutine
+NTSTATUS
+SAMPLE_CompletionRoutine(
+  IN PDEVICE_OBJECT DeviceObject,
+  IN PIRP, Irp,
+  IN PVOID Context)
+{
+  if(Irp->PendingReturned) // 1
+    IoMarkIrpPending(Irp); // 2
+  return Irp->IoStatus.Status;
+  // 이 값은 STATUS_MORE_PROCESSING_REQUIRED 갑싱 될 수 없다.
+}
+```
+
+위 코드를 보면, 일반적인 CompletionRoutine의 모습을 보여준다.
+이와 같이 해당하는 IRP가 `1`의 코드를 통해 STATUS_PENDING 리턴된 적이 있는지를 조사한 후 `2`에서 IoMarkPending() 함수를 호출하지 않으면 해당하는 IRP가 비동기적으로 완료된다는 사실이 현상이 발생해서 해당하는 IRP가 완료되기를 기다리는 클라이언트에 완료 사실이 통보되지 못하는 현상이 발생한다.
+
+
