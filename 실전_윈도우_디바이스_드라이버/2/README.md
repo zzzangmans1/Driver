@@ -791,4 +791,33 @@ SAMPLE_CompletionRoutine(
 위 코드를 보면, 일반적인 CompletionRoutine의 모습을 보여준다.
 이와 같이 해당하는 IRP가 `1`의 코드를 통해 STATUS_PENDING 리턴된 적이 있는지를 조사한 후 `2`에서 IoMarkPending() 함수를 호출하지 않으면 해당하는 IRP가 비동기적으로 완료된다는 사실이 현상이 발생해서 해당하는 IRP가 완료되기를 기다리는 클라이언트에 완료 사실이 통보되지 못하는 현상이 발생한다.
 
+#### 2.2.3.3 IRQL
+
+윈도우 커널은 자신이 수행하려는 일반적인 작업들을 수행하는 과정 중에 처리하지 않으면 안 되는 중요한 작업이 CPU를 선점하는 것을 허용하고 있다.
+이런 선점 행위는 인터럽트라는 의미로 사용된다.
+인터럽트는 CPU를 선점하는 행위면서, 이렇게 CPU를 선점하는 작업은 커널이 수행하려는 일반적인 작업들보다 우선순위가 높다는 점을 기억해야 한다.
+따라서 인터럽트는 가능하면 빠른 시간 안에 끝나고 원래 작업에 CPU를 돌려줘야 한다.
+
+윈도우 커널이 사용하는 IRQL은 모두 32가지가 존재한다.
+이것은 대수적으로 IRQL 0부터 IRQL 31까지로 정의하며, 큰 값이 우선순위가 높다.
+
+이와 같은 인터럽트가 사용하는 IRQL 값은 동일한 수준의 IRQL 값을 사용하는 작업으로부터 CPU를 선점하지 못한다.
+또한 IRQL은 CPU를 선점하는 작업이기 때문에 CPU의 개수만큼 IRQL이 존재한다는 점도 기억해야 한다.
+
+|루틴|IRQL
+|--|--
+|DriverEntry|PASSIVE_LEVEL(0)
+|AddDevice|PASSIVE_LEVEL(0)
+|PnPDispatch|PASSIVE_LEVEL(0) or APC_LEVEL(1)
+|PowerDispatch|PASSIVE_LEVEL(0) or DISPATCH_LEVEL(2)
+|xxxIRPDispatch|PASSIVE_LEVEL(0) or APC_LEVEL(1) or DISPATCH_LEVEL(2)
+|DriverUnload|PASSIVE_LEVEL(0)
+|ISR Routine|DIRQL_LEVEL(n >= 2)
+|Completion Routine|PASSIVE_LEVEL(0), APC_LEVEL(1) or DISPATCH_LEVEL(2)
+|DPC Routine|DISPATCH_LEVEL(2)
+|Time Routine|DISPATCH_LEVEL(2)
+|WorkItem Routine|PASSIVE_LEVEL(0)
+|StarIO Routine|DISPATCH_LEVEL(2)
+|System Thread Routine|PASSIVE_LEVEL(0)
+
 
